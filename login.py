@@ -1,7 +1,9 @@
+import os
+
 import requests
 from flask import jsonify
 
-def login_user(request):
+def login_user(request, wazuh_url):
     """
     Authenticate a user against the Wazuh API and return a JWT token.
 
@@ -44,11 +46,11 @@ def login_user(request):
     if not username or not password:
         return jsonify({"error": "Missing credentials"}), 400
 
-    auth_url = '[WAZUH_API_URL]/security/user/authenticate'
+    verify_ssl = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
+    auth_url = f'{wazuh_url}/security/user/authenticate'
 
     try:
-        # verify=True ensures SSL certificates are validated
-        response = requests.post(auth_url, verify=True, auth=(username, password), timeout=5)
+        response = requests.post(auth_url, verify=verify_ssl, auth=(username, password), timeout=5)
     except requests.exceptions.RequestException:
         return jsonify({"error": "Authentication service unavailable"}), 503
 
@@ -63,5 +65,5 @@ def login_user(request):
             return jsonify({"error": "Malformed response from auth service"}), 502
         
         return jsonify({"token": token}), 200
-    except (ValueError, KeyError):
+    except ValueError:
         return jsonify({"error": "Invalid response format"}), 502

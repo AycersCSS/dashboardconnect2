@@ -1,3 +1,5 @@
+import os
+
 import requests
 
 def get_agent_count(wazuh_url, token, status=None):
@@ -21,11 +23,13 @@ def get_agent_count(wazuh_url, token, status=None):
     if status:
         params["status"] = status
     
+    verify_ssl = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
     resp = requests.get(
         f"{wazuh_url}/agents",
         params=params,
         headers={"Authorization": f"Bearer {token}"},
-        verify=False
+        verify=verify_ssl,
+        timeout=10
     )
     resp.raise_for_status()
     data = resp.json()
