@@ -2,6 +2,41 @@ import requests
 from flask import jsonify
 
 def login_user(request):
+    """
+    Authenticate a user against the Wazuh API and return a JWT token.
+
+    Extracts credentials from the JSON request body and forwards them to the
+    Wazuh authentication endpoint, and returns the resulting JWT token
+
+    Args:
+        request (flask.Request): The incoming Flask request object. Must
+                                 contain a JSON body with "username" and
+                                 "password" fields.
+
+    Returns:
+        tuple: A Flask (Response, status_code) tuple. Possible responses:
+
+            200 - Authentication successful:
+                {"token": "<jwt_token>"}
+
+            400 - Missing credentials:
+                {"error": "Missing credentials"}
+
+            401 - Invalid credentials (Wazuh rejected the login):
+                {"error": "Invalid credentials"}
+
+            502 - Wazuh returned an unexpected or malformed response:
+                {"error": "Malformed response from auth service"}
+                {"error": "Invalid response format"}
+
+            503 - Wazuh authentication service is unreachable:
+                {"error": "Authentication service unavailable"}
+
+    Raises:
+        No exceptions are raised; all errors are caught and returned
+        as JSON error responses.
+    """
+
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
@@ -9,7 +44,7 @@ def login_user(request):
     if not username or not password:
         return jsonify({"error": "Missing credentials"}), 400
 
-    auth_url = 'https://mpaf10113c70551d49a2.free.beeceptor.com/security/user/authenticate'
+    auth_url = '[WAZUH_API_URL]/security/user/authenticate'
 
     try:
         # verify=True ensures SSL certificates are validated
