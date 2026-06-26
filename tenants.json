@@ -1,0 +1,5 @@
+{
+    "acme-corp": ["acme-servers", "acme-workstations"],
+    "globex-inc": ["globex-servers"],
+    "initech": ["initech-servers", "initech-printers"]
+}

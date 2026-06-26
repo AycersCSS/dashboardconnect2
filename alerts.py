@@ -7,7 +7,7 @@ CRITICAL_THRESHOLD = 14
 HIGH_THRESHOLD = 12
 
 
-def get_alerts(wazuh_url, token, limit=100, time_range="7d"):
+def get_alerts(wazuh_url, token, limit=100, time_range="7d", groups=None):
     """
     Fetch Wazuh alerts and bucket into critical / high / warning.
 
@@ -17,11 +17,20 @@ def get_alerts(wazuh_url, token, limit=100, time_range="7d"):
     Each alert is the full Wazuh object with original fields:
     timestamp, rule.{id,level,description,groups},
     agent.{id,name,ip}, full_log, etc.
+
+    Args:
+        groups (list[str], optional): Wazuh agent group names to
+            scope alerts to. Passed as an OR filter via the Wazuh
+            query language, e.g. "agent.groups=group1,group2".
     """
     verify_ssl = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
 
+    query = "rule.level>6"
+    if groups:
+        query += ";agent.groups=" + ",".join(groups)
+
     params = {
-        "q": "rule.level>6",
+        "q": query,
         "limit": limit,
         "sort": "-timestamp",
         "time_range": time_range,
