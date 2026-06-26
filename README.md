@@ -18,9 +18,8 @@ Lightweight Flask middleware that proxies authentication, agent stats, and categ
    JWT_SECRET="generate-a-random-secret"
    ```
 
-3. Install dependencies and initialise the database:
+3. Initialise the database:
    ```
-   pip install -r requirements.txt
    python -c "from models import init_db; init_db()"
    ```
 
@@ -30,6 +29,8 @@ Lightweight Flask middleware that proxies authentication, agent stats, and categ
    ```
    python main.py
    ```
+
+   Runs on `http://localhost:5000` with Flask's debug mode enabled.
 
 ## API
 
@@ -189,19 +190,7 @@ Check if a tenant ID is available.
 
 ---
 
-## Tenant filtering
+## Wazuh prerequisites
 
-Tenant support is optional. The connector maps tenant IDs to Wazuh agent groups stored in the database. When a **customer JWT** is used, the tenant is extracted from the token automatically and cannot be overridden. When a **Wazuh JWT** is used, the `?tenant=` query parameter can filter results (or omit it to see all agents/alerts).
-
-### Wazuh prerequisites
-
-- Agents must be assigned to Wazuh groups that match the values in your mapping file.
-- The Wazuh user used for authentication needs read access to the `/agents` and `/security/alerts` endpoints.
-
-## Development
-
-```
-python main.py
-```
-
-Runs on `http://localhost:5000` with Flask's debug mode enabled.
+- Agents must be assigned to Wazuh groups that match the tenant mappings in the database.
+- The Wazuh service account (set in `.env`) needs read access to the `/agents` and `/security/alerts` endpoints.
