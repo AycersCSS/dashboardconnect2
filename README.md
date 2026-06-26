@@ -119,6 +119,61 @@ GET /alerts?limit=200&time_range=30d&tenant=acme-corp
 
 ---
 
+### `GET /agents/<agent_id>`
+
+Fetch details and alerts for a specific agent, scoped to the authenticated tenant.
+
+Requires an `Authorization: Bearer <token>` header. The token can be a customer JWT (from `/customer/login`) or a Wazuh JWT (from `/authenticate`).
+
+**Path param:**
+
+| Param | Type | Description |
+|---|---|---|
+| `agent_id` | string | Wazuh agent ID (e.g. `001`) |
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `limit` | int | `100` | Maximum alerts to return |
+| `time_range` | string | `7d` | Lookback window (e.g. `24h`, `30d`) |
+| `tenant` | string | — | Tenant ID override (only applies to Wazuh JWTs) |
+
+**Examples:**
+
+```
+curl -H "Authorization: Bearer <token>" http://localhost:5000/agents/001
+
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:5000/agents/001?limit=50&time_range=24h"
+```
+
+**Response (200):**
+
+```json
+{
+  "agent": {
+    "id": "001",
+    "name": "server-01",
+    "os": "Ubuntu 22.04.3 LTS",
+    "version": "Wazuh v4.7.0",
+    "last_seen": "2026-06-25T14:30:00Z",
+    "status": "active",
+    "groups": ["acme-servers"]
+  },
+  "alerts": {
+    "critical": [],
+    "high": [],
+    "warning": [ { ... } ],
+    "total": 1
+  }
+}
+```
+
+**Errors:** `401` (missing/invalid token), `404` (agent not found or not in tenant scope), `502` (Wazuh API error).
+
+---
+
 ## Customer API
 
 ### `POST /customer/register`

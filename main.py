@@ -13,6 +13,7 @@ import stats
 from models import init_db
 import tenants
 import customer_auth
+import agent
 
 WAZUH_API_URL = os.environ.get("WAZUH_API_URL")
 if not WAZUH_API_URL:
@@ -197,6 +198,29 @@ def check_tenant():
         return jsonify({"error": "name query parameter is required"}), 400
     available = tenants.check_tenant_available(name)
     return jsonify({"available": available}), 200
+
+
+@app.route("/agents/<agent_id>", methods=["GET"])
+def agent_detail(agent_id):
+    groups, wazuh_token, err = _get_request_context()
+    if err:
+        return jsonify(err[0]), err[1]
+
+    limit = request.args.get("limit", default=100, type=int)
+    time_range = request.args.get("time_range", default="7d")
+
+    try:
+        details = agent.get_agent_details(
+            WAZUH_API_URL, wazuh_token, agent_id, groups
+        )
+        alerts = agent.get_agent_alerts(
+            WAZUH_API_URL, wazuh_token, agent_id, groups, limit, time_range
+        )
+        return jsonify({"agent": details, "alerts": alerts}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except requests.HTTPError as e:
+        return jsonify({"error": str(e)}), 502
 
 
 if __name__ == "__main__":
