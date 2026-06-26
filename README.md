@@ -13,15 +13,18 @@ Lightweight Flask middleware that proxies authentication, agent stats, and categ
    ```
    WAZUH_API_URL="https://your-wazuh-server:55000"
    WAZUH_SSL_VERIFY="false"
+   WAZUH_API_USERNAME="wazuh-service-account"
+   WAZUH_API_PASSWORD="wazuh-service-account-password"
+   JWT_SECRET="generate-a-random-secret"
    ```
 
-3. (Optional) Configure tenant-to-agent-group mappings in `tenants.json`:
-   ```json
-   {
-       "acme-corp": ["acme-servers", "acme-workstations"],
-       "globex-inc": ["globex-servers"]
-   }
+3. Install dependencies and initialise the database:
    ```
+   pip install -r requirements.txt
+   python -c "from models import init_db; init_db()"
+   ```
+
+   The database (`connector.db` by default) stores customer accounts and tenant-to-group mappings. Tenants are managed through the API — see the **Customer API** section below.
 
 4. Run the server:
    ```
@@ -30,7 +33,7 @@ Lightweight Flask middleware that proxies authentication, agent stats, and categ
 
 ## API
 
-All data endpoints require a Bearer token obtained from `/authenticate`.
+Data endpoints accept either a **customer JWT** (from `/customer/login`) scoped automatically to the customer's tenant, or a **Wazuh JWT** (from `/authenticate`) for admin use with optional `?tenant=` override.
 
 ### `POST /authenticate`
 
@@ -57,7 +60,7 @@ Return the total count of Wazuh agents, optionally filtered by status and/or ten
 | Query param | Type | Default | Description |
 |---|---|---|---|
 | `status` | string | — | Filter by agent status: `active`, `disconnected`, `pending`, `never_connected` |
-| `tenant` | string | — | Tenant ID from `tenants.json` — scopes count to agents in the mapped Wazuh groups |
+| `tenant` | string | — | Tenant ID — scopes count to agents in the mapped Wazuh groups (only applies to Wazuh JWTs; customer JWTs are scoped automatically) |
 
 **Examples:**
 
@@ -87,7 +90,7 @@ Fetch Wazuh security alerts bucketed by severity.
 |---|---|---|---|
 | `limit` | int | `100` | Maximum alerts to return |
 | `time_range` | string | `7d` | Lookback window (e.g. `24h`, `30d`) |
-| `tenant` | string | — | Tenant ID from `tenants.json` — filters alerts to agents in the mapped Wazuh groups |
+| `tenant` | string | — | Tenant ID — filters alerts to agents in the mapped Wazuh groups (only applies to Wazuh JWTs; customer JWTs are scoped automatically) |
 
 **Severity buckets:**
 
@@ -113,17 +116,82 @@ GET /alerts?limit=200&time_range=30d&tenant=acme-corp
 
 **Errors:** `401` (missing/invalid token), `502` (Wazuh API error).
 
+---
+
+## Customer API
+
+### `POST /customer/register`
+
+Create a new customer account with a tenant ID and Wazuh group mappings.
+
+**Request:**
+```json
+{
+    "username": "customer1",
+    "password": "secure-password",
+    "tenant_id": "acme-corp",
+    "wazuh_groups": ["acme-servers", "acme-workstations"]
+}
+```
+
+**Response (201):**
+```json
+{ "message": "Customer registered" }
+```
+
+**Errors:** `400` (missing fields), `409` (username or tenant ID already exists).
+
+---
+
+### `POST /customer/login`
+
+Authenticate as a customer and receive a JWT scoped to the customer's tenant.
+
+**Request:**
+```json
+{ "username": "customer1", "password": "secure-password" }
+```
+
+**Response (200):**
+```json
+{ "token": "eyJhbGciOiJIUzI1NiJ9..." }
+```
+
+**Errors:** `400` (missing credentials), `401` (invalid credentials).
+
+The returned token embeds the customer's `tenant_id`. When used with `/stats/agents` or `/alerts`, results are automatically filtered to the Wazuh groups mapped to that tenant.
+
+---
+
+### `GET /tenants`
+
+List all registered tenant IDs.
+
+**Response (200):**
+```json
+{ "tenants": ["acme-corp", "globex-inc"] }
+```
+
+Useful for registration flows — a frontend can check available tenant IDs before a customer signs up.
+
+---
+
+### `GET /tenants/check?name=<id>`
+
+Check if a tenant ID is available.
+
+**Response (200):**
+```json
+{ "available": true }
+```
+
+**Errors:** `400` (missing `name` parameter).
+
+---
+
 ## Tenant filtering
 
-Tenant support is optional. The connector maps tenant IDs to Wazuh agent groups via `tenants.json`. When `?tenant=` is omitted the endpoint returns data for **all** agents/alerts (original behaviour).
-
-### Configuration
-
-Set `TENANTS_FILE` in `.env` to use a different path (default: `tenants.json`):
-
-```
-TENANTS_FILE=/etc/opencode/tenants.json
-```
+Tenant support is optional. The connector maps tenant IDs to Wazuh agent groups stored in the database. When a **customer JWT** is used, the tenant is extracted from the token automatically and cannot be overridden. When a **Wazuh JWT** is used, the `?tenant=` query parameter can filter results (or omit it to see all agents/alerts).
 
 ### Wazuh prerequisites
 
