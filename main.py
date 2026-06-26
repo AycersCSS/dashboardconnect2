@@ -6,6 +6,7 @@ import os
 import requests
 from flask import Flask, jsonify, request
 
+import alerts
 import login
 import stats
 
@@ -37,6 +38,24 @@ def agent_stats():
     try:
         count = stats.get_agent_count(WAZUH_API_URL, token, status)
         return jsonify({"total_agents": count}), 200
+    except (requests.HTTPError, ValueError) as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@app.route("/alerts", methods=["GET"])
+def categorized_alerts():
+    """Return { critical, high, warning, total }. Requires Bearer token."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return jsonify({"error": "Missing or invalid Authorization header"}), 401
+    token = auth.split(" ", 1)[1]
+
+    limit = request.args.get("limit", default=100, type=int)
+    time_range = request.args.get("time_range", default="7d")
+
+    try:
+        result = alerts.get_alerts(WAZUH_API_URL, token, limit=limit, time_range=time_range)
+        return jsonify(result), 200
     except (requests.HTTPError, ValueError) as e:
         return jsonify({"error": str(e)}), 502
 
