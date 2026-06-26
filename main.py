@@ -33,6 +33,14 @@ _wazuh_token_obtained = None
 
 
 def _ensure_wazuh_token():
+    """Get a valid Wazuh API JWT, caching it for up to 30 minutes.
+
+    Returns:
+        str: A Wazuh JWT token.
+
+    Raises:
+        RuntimeError: If credentials are missing or auth fails.
+    """
     global _wazuh_token, _wazuh_token_obtained
     now = datetime.datetime.now(datetime.timezone.utc)
     if (
@@ -69,6 +77,12 @@ def _ensure_wazuh_token():
 
 
 def _resolve_tenant_groups(tenant_id):
+    """Resolve a tenant ID to its mapped Wazuh group list.
+
+    Returns:
+        list[str] | None: The group list, or None if tenant_id is falsy
+        or the tenant doesn't exist.
+    """
     if not tenant_id:
         return None
     groups = tenants.resolve_groups(tenant_id)
@@ -111,11 +125,23 @@ def _get_request_context():
 
 @app.route("/authenticate", methods=["POST"])
 def login_user():
+    """Authenticate against Wazuh and return a JWT.
+
+    Request body: {"username": str, "password": str}
+    Response (200): {"token": str}
+    Errors: 400, 401, 502, 503
+    """
     return login.login_user(request=request, wazuh_url=WAZUH_API_URL)
 
 
 @app.route("/stats/agents", methods=["GET"])
 def agent_stats():
+    """Return the total agent count, optionally filtered by status/tenant.
+
+    Query params: status (str), tenant (str)
+    Response (200): {"total_agents": int}
+    Errors: 401, 502
+    """
     groups, wazuh_token, err = _get_request_context()
     if err:
         return jsonify(err[0]), err[1]
@@ -130,6 +156,12 @@ def agent_stats():
 
 @app.route("/alerts", methods=["GET"])
 def categorized_alerts():
+    """Fetch alerts bucketed by severity (critical/high/warning).
+
+    Query params: limit (int), time_range (str), tenant (str)
+    Response (200): {"critical": [...], "high": [...], "warning": [...], "total": int}
+    Errors: 401, 502
+    """
     groups, wazuh_token, err = _get_request_context()
     if err:
         return jsonify(err[0]), err[1]
@@ -154,6 +186,12 @@ def categorized_alerts():
 
 @app.route("/customer/register", methods=["POST"])
 def register_customer():
+    """Register a new customer account.
+
+    Request body: {"username": str, "password": str, "tenant_id": str, "wazuh_groups": list[str]}
+    Response (201): {"message": "Customer registered"}
+    Errors: 400 (missing fields), 409 (duplicate)
+    """
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
@@ -172,6 +210,12 @@ def register_customer():
 
 @app.route("/customer/login", methods=["POST"])
 def login_customer():
+    """Authenticate as a customer and receive a tenant-scoped JWT.
+
+    Request body: {"username": str, "password": str}
+    Response (200): {"token": str} (JWT with embedded tenant_id)
+    Errors: 400, 401
+    """
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
@@ -188,11 +232,21 @@ def login_customer():
 
 @app.route("/tenants", methods=["GET"])
 def list_tenants():
+    """List all registered tenant IDs.
+
+    Response (200): {"tenants": list[str]}
+    """
     return jsonify({"tenants": tenants.list_tenants()}), 200
 
 
 @app.route("/tenants/check", methods=["GET"])
 def check_tenant():
+    """Check if a tenant ID is available.
+
+    Query params: name (str)
+    Response (200): {"available": bool}
+    Errors: 400 (missing name)
+    """
     name = request.args.get("name")
     if not name:
         return jsonify({"error": "name query parameter is required"}), 400
@@ -202,6 +256,15 @@ def check_tenant():
 
 @app.route("/agents/<agent_id>", methods=["GET"])
 def agent_detail(agent_id):
+    """Fetch agent details and alerts for a specific agent.
+
+    Path param: agent_id (str)
+    Query params: limit (int), time_range (str), tenant (str)
+    Response (200): {"agent": {...}, "alerts": {...}}
+        agent: {"id", "name", "os", "version", "last_seen", "status", "groups"}
+        alerts: {"critical": [...], "high": [...], "warning": [...], "total": int}
+    Errors: 401, 404, 502
+    """
     groups, wazuh_token, err = _get_request_context()
     if err:
         return jsonify(err[0]), err[1]

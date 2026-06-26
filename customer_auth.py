@@ -21,6 +21,17 @@ JWT_EXPIRATION_HOURS = 24
 
 
 def register(username, password, tenant_id, wazuh_groups):
+    """Insert a new customer into the database with a bcrypt-hashed password.
+
+    Args:
+        username (str): Unique login name.
+        password (str): Plain-text password (hashed before storage).
+        tenant_id (str): Tenant identifier.
+        wazuh_groups (list[str]): Wazuh group names to scope this tenant.
+
+    Raises:
+        ValueError: If the username or tenant_id already exists.
+    """
     conn = get_db()
     try:
         password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -36,6 +47,16 @@ def register(username, password, tenant_id, wazuh_groups):
 
 
 def login(username, password):
+    """Authenticate a customer by username/password.
+
+    Args:
+        username (str): Customer login name.
+        password (str): Plain-text password.
+
+    Returns:
+        str | None: A signed JWT (valid 24h) embedding the customer's
+        tenant_id, or None if credentials are invalid.
+    """
     conn = get_db()
     row = conn.execute(
         "SELECT id, tenant_id, password_hash FROM customers WHERE username = ?",
@@ -57,6 +78,15 @@ def login(username, password):
 
 
 def decode_token(token):
+    """Decode and validate a customer JWT.
+
+    Args:
+        token (str): The JWT string.
+
+    Returns:
+        dict | None: The decoded payload (contains tenant_id, sub, exp, iat)
+        or None if the token is invalid/expired.
+    """
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:

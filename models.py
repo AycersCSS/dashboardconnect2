@@ -5,6 +5,11 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "connector.db")
 
 
 def get_db():
+    """Open a connection to the SQLite database.
+
+    Returns:
+        sqlite3.Connection: Connection with Row factory and WAL mode enabled.
+    """
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -12,6 +17,10 @@ def get_db():
 
 
 def init_db():
+    """Create the customers table if it doesn't exist.
+
+    Called once at startup.
+    """
     conn = get_db()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS customers (
