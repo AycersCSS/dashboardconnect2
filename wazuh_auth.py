@@ -19,7 +19,13 @@ if not WAZUH_API_URL:
 
 WAZUH_SSL_VERIFY = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
 
-WAZUH_INDEXER_URL = os.environ.get("WAZUH_INDEXER_URL", "")
+WAZUH_INDEXER_URL = os.environ.get("WAZUH_INDEXER_URL")
+if not WAZUH_INDEXER_URL:
+    raise RuntimeError(
+        "WAZUH_INDEXER_URL is not set.\n\n"
+        "Add to .env:\n"
+        '  WAZUH_INDEXER_URL="https://localhost:9200"'
+    )
 
 _wazuh_token = None
 _wazuh_token_obtained = None

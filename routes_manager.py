@@ -56,24 +56,23 @@ def get_manager_status():
         return jsonify({"error": str(e)}), 502
 
     indexer_info = {}
-    if WAZUH_INDEXER_URL:
-        username = os.environ.get("WAZUH_API_USERNAME", "")
-        password = os.environ.get("WAZUH_API_PASSWORD", "")
-        try:
-            idx_resp = requests.get(
-                WAZUH_INDEXER_URL,
-                auth=(username, password),
-                verify=WAZUH_SSL_VERIFY,
-                timeout=10,
-            )
-            idx_resp.raise_for_status()
-            idx_data = idx_resp.json()
-            indexer_info = {
-                "name": idx_data.get("cluster_name", ""),
-                "version": idx_data.get("version", {}).get("number", ""),
-            }
-        except Exception:
-            indexer_info = {"name": None, "version": None}
+    username = os.environ.get("WAZUH_API_USERNAME", "")
+    password = os.environ.get("WAZUH_API_PASSWORD", "")
+    try:
+        idx_resp = requests.get(
+            WAZUH_INDEXER_URL,
+            auth=(username, password),
+            verify=WAZUH_SSL_VERIFY,
+            timeout=10,
+        )
+        idx_resp.raise_for_status()
+        idx_data = idx_resp.json()
+        indexer_info = {
+            "name": idx_data.get("cluster_name", ""),
+            "version": idx_data.get("version", {}).get("number", ""),
+        }
+    except Exception:
+        indexer_info = {"name": None, "version": None}
 
     manager_status = mgmt_data.get("data", {}).get("affected_items", [{}])[0] if mgmt_data.get("data", {}).get("affected_items") else {}
 

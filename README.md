@@ -415,4 +415,4 @@ Check if a tenant ID is available.
   `GET /compliance/{framework}`, `GET /manager/logs`, `GET /manager/status`,
   `GET /cluster/healthcheck`, `POST /security/user/authenticate`.
 - Agents must be assigned to Wazuh groups that match the tenant-to-group mappings in the database.
-- The Wazuh indexer (OpenSearch) should be reachable at `WAZUH_INDEXER_URL` if the `/manager` route's indexer info is desired. The indexer uses the same service-account credentials as the Wazuh API.
+- `WAZUH_INDEXER_URL` is required. The indexer uses the same service-account credentials as the Wazuh API. If the indexer is unreachable at runtime the `/manager` route returns `{"name": null, "version": null}` gracefully.
