@@ -2,20 +2,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
-import datetime
 
 import requests
 from flask import Flask, jsonify, request
 
 import alerts
+import agent
 import login
 import stats
 from models import init_db
 import tenants
 import customer_auth
-import agent
+from wazuh_auth import (
+    WAZUH_API_URL,
+    _get_request_context,
+    clear_wazuh_token,
+)
 
-WAZUH_API_URL = os.environ.get("WAZUH_API_URL")
 if not WAZUH_API_URL:
     raise RuntimeError(
         "WAZUH_API_URL is not set.\n\n"
@@ -27,101 +30,26 @@ if not WAZUH_API_URL:
 
 app = Flask(__name__)
 
-# --- Internal Wazuh token cache ---
-_wazuh_token = None
-_wazuh_token_obtained = None
+import routes_agents
+import routes_compliance
+import routes_fim
+import routes_integrations
+import routes_logs
+import routes_manager
+import routes_rules
+import routes_threat_actors
+import routes_vulnerabilities
 
+app.register_blueprint(routes_agents.bp)
+app.register_blueprint(routes_compliance.bp)
+app.register_blueprint(routes_fim.bp)
+app.register_blueprint(routes_integrations.bp)
+app.register_blueprint(routes_logs.bp)
+app.register_blueprint(routes_manager.bp)
+app.register_blueprint(routes_rules.bp)
+app.register_blueprint(routes_threat_actors.bp)
+app.register_blueprint(routes_vulnerabilities.bp)
 
-def _ensure_wazuh_token():
-    """Get a valid Wazuh API JWT, caching it for up to 30 minutes.
-
-    Returns:
-        str: A Wazuh JWT token.
-
-    Raises:
-        RuntimeError: If credentials are missing or auth fails.
-    """
-    global _wazuh_token, _wazuh_token_obtained
-    now = datetime.datetime.now(datetime.timezone.utc)
-    if (
-        _wazuh_token
-        and _wazuh_token_obtained
-        and (now - _wazuh_token_obtained).total_seconds() < 1800
-    ):
-        return _wazuh_token
-
-    username = os.environ.get("WAZUH_API_USERNAME")
-    password = os.environ.get("WAZUH_API_PASSWORD")
-    if not username or not password:
-        raise RuntimeError("WAZUH_API_USERNAME and WAZUH_API_PASSWORD are not set")
-
-    verify_ssl = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
-    auth_url = f"{WAZUH_API_URL}/security/user/authenticate"
-
-    try:
-        resp = requests.post(
-            auth_url, verify=verify_ssl, auth=(username, password), timeout=5
-        )
-        resp.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Wazuh authentication service unavailable: {e}")
-
-    data = resp.json()
-    token = data.get("data", {}).get("token")
-    if not token:
-        raise RuntimeError("Malformed response from Wazuh auth service")
-
-    _wazuh_token = token
-    _wazuh_token_obtained = now
-    return token
-
-
-def _resolve_tenant_groups(tenant_id):
-    """Resolve a tenant ID to its mapped Wazuh group list.
-
-    Returns:
-        list[str] | None: The group list, or None if tenant_id is falsy
-        or the tenant doesn't exist.
-    """
-    if not tenant_id:
-        return None
-    groups = tenants.resolve_groups(tenant_id)
-    if groups is None:
-        print(f"Warning: unknown tenant '{tenant_id}' — no group filter applied")
-    return groups
-
-
-def _get_request_context():
-    """Return (groups, wazuh_token, error_response).
-
-    error_response is None on success, or a (body_dict, status_code) tuple.
-    """
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        return None, None, ({"error": "Missing or invalid Authorization header"}, 401)
-
-    raw_token = auth.split(" ", 1)[1]
-
-    payload = customer_auth.decode_token(raw_token)
-    if payload:
-        tenant_id = payload.get("tenant_id")
-        groups = _resolve_tenant_groups(tenant_id)
-        try:
-            wazuh_token = _ensure_wazuh_token()
-        except RuntimeError as e:
-            return None, None, ({"error": str(e)}, 503)
-        return groups, wazuh_token, None
-
-    # Fallback: treat as a Wazuh JWT
-    if raw_token.count(".") != 2:
-        return None, None, ({"error": "Invalid token format"}, 401)
-
-    tenant_override = request.args.get("tenant")
-    groups = _resolve_tenant_groups(tenant_override)
-    return groups, raw_token, None
-
-
-# --- Existing routes ---
 
 @app.route("/authenticate", methods=["POST"])
 def login_user():
@@ -151,6 +79,8 @@ def agent_stats():
         count = stats.get_agent_count(WAZUH_API_URL, wazuh_token, status, groups)
         return jsonify({"total_agents": count}), 200
     except (requests.HTTPError, ValueError) as e:
+        if isinstance(e, requests.HTTPError) and e.response is not None and e.response.status_code == 401:
+            clear_wazuh_token()
         return jsonify({"error": str(e)}), 502
 
 
@@ -179,10 +109,10 @@ def categorized_alerts():
         )
         return jsonify(result), 200
     except (requests.HTTPError, ValueError) as e:
+        if isinstance(e, requests.HTTPError) and e.response is not None and e.response.status_code == 401:
+            clear_wazuh_token()
         return jsonify({"error": str(e)}), 502
 
-
-# --- Customer routes ---
 
 @app.route("/customer/register", methods=["POST"])
 def register_customer():
@@ -283,6 +213,8 @@ def agent_detail(agent_id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 401:
+            clear_wazuh_token()
         return jsonify({"error": str(e)}), 502
 
 
