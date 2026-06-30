@@ -205,6 +205,8 @@ Proxy to Wazuh's `GET /vulnerability`. Returns detected vulnerabilities scoped t
 { "data": { "affected_items": [...], "total_affected_items": 12 }, "error": 0 }
 ```
 
+**Caching:** Responses are cached for 60 seconds keyed by tenant and query parameters. Rapid consecutive requests with the same filters return the cached result without hitting the Wazuh API.
+
 **Errors:** `401`, `502`.
 
 ---
