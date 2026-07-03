@@ -24,7 +24,7 @@ def list_agents():
             params[key] = val
 
     if groups:
-        params["group"] = ",".join(groups)
+        params["q"] = "agent.groups=" + ",".join(groups)
 
     try:
         resp = requests.get(
@@ -50,29 +50,30 @@ def agents_status_count():
     if err:
         return jsonify(err[0]), err[1]
 
-    statuses = ["active", "disconnected", "pending", "never_connected"]
-    counts = {}
+    params = {"summary": "true"}
+    if groups:
+        params["q"] = "agent.groups=" + ",".join(groups)
 
-    for status in statuses:
-        params = {"limit": 1, "status": status}
-        if groups:
-            params["group"] = ",".join(groups)
-        try:
-            resp = requests.get(
-                f"{WAZUH_API_URL}/agents",
-                params=params,
-                headers={"Authorization": f"Bearer {wazuh_token}"},
-                verify=WAZUH_SSL_VERIFY,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            counts[status] = data.get("data", {}).get("total_affected_items", 0)
-        except requests.HTTPError as e:
-            if resp.status_code == 401:
-                clear_wazuh_token()
-            return jsonify({"error": str(e)}), 502
-        except Exception as e:
-            return jsonify({"error": str(e)}), 502
-
-    return jsonify(counts), 200
+    try:
+        resp = requests.get(
+            f"{WAZUH_API_URL}/agents",
+            params=params,
+            headers={"Authorization": f"Bearer {wazuh_token}"},
+            verify=WAZUH_SSL_VERIFY,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        summary = data.get("data", {}).get("summary", {})
+        return jsonify({
+            "active": summary.get("active", 0),
+            "disconnected": summary.get("disconnected", 0),
+            "pending": summary.get("pending", 0),
+            "never_connected": summary.get("never_connected", 0),
+        }), 200
+    except requests.HTTPError as e:
+        if resp.status_code == 401:
+            clear_wazuh_token()
+        return jsonify({"error": str(e)}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502

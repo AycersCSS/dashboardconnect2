@@ -1,6 +1,7 @@
 import datetime
 import os
 
+import jwt
 import requests
 from flask import request
 
@@ -19,16 +20,19 @@ if not WAZUH_API_URL:
 
 WAZUH_SSL_VERIFY = os.environ.get("WAZUH_SSL_VERIFY", "true").lower() == "true"
 
-WAZUH_INDEXER_URL = os.environ.get("WAZUH_INDEXER_URL")
-if not WAZUH_INDEXER_URL:
-    raise RuntimeError(
-        "WAZUH_INDEXER_URL is not set.\n\n"
-        "Add to .env:\n"
-        '  WAZUH_INDEXER_URL="https://localhost:9200"'
-    )
-
 _wazuh_token = None
 _wazuh_token_obtained = None
+
+
+def get_indexer_url():
+    url = os.environ.get("WAZUH_INDEXER_URL")
+    if not url:
+        raise RuntimeError(
+            "WAZUH_INDEXER_URL is not set.\n\n"
+            "Add to .env:\n"
+            '  WAZUH_INDEXER_URL="https://localhost:9200"'
+        )
+    return url
 
 
 def _ensure_wazuh_token():
@@ -108,6 +112,13 @@ def _get_request_context():
 
     if raw_token.count(".") != 2:
         return None, None, ({"error": "Invalid token format"}, 401)
+
+    try:
+        unverified = jwt.decode(raw_token, options={"verify_signature": False, "verify_exp": False})
+        if "tenant_id" in unverified:
+            return None, None, ({"error": "Invalid or expired token"}, 401)
+    except jwt.PyJWTError:
+        pass
 
     tenant_override = request.args.get("tenant")
     groups = _resolve_tenant_groups(tenant_override)

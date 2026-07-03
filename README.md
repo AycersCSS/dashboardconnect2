@@ -78,7 +78,7 @@ Proxy to Wazuh's `GET /agents`. Returns a list of agents, filtered to the caller
 
 ### `GET /agents/status-count`
 
-Return agent counts broken down by connection status. Makes four calls to the Wazuh API, one per status, scoped to the caller's tenant.
+Return agent counts broken down by connection status. Uses a single `GET /agents?summary=true` call scoped to the caller's tenant.
 
 **Response (200):**
 ```json
@@ -298,7 +298,7 @@ Combine Wazuh's `GET /manager/status`, `GET /cluster/healthcheck`, and indexer r
   "manager": { "wazuh-analysisd": "running", "wazuh-syscheckd": "running", ... },
   "workers": { "active": 2, "total": 3 },
   "indexer": { "name": "wazuh-cluster", "version": "7.17.1" },
-  "apiLatencyP95Ms": null
+  "apiLatencyP95Ms": 142.3
 }
 ```
 

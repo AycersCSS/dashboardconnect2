@@ -1,3 +1,5 @@
+import re
+
 import requests
 from flask import Blueprint, jsonify, request
 
@@ -10,6 +12,8 @@ from wazuh_auth import (
 
 bp = Blueprint("compliance", __name__)
 
+_SAFE_FRAMEWORK_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
 
 @bp.route("/compliance", methods=["GET"])
 def get_compliance():
@@ -20,6 +24,9 @@ def get_compliance():
     framework = request.args.get("framework")
     if not framework:
         return jsonify({"error": "framework query parameter is required"}), 400
+
+    if not _SAFE_FRAMEWORK_RE.match(framework):
+        return jsonify({"error": "Invalid framework name"}), 400
 
     params = {}
     for key in ("limit", "offset"):
