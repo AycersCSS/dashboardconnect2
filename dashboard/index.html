@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MergeIT Wazuh Dashboard</title>
+<link rel="stylesheet" href="/dashboard/styles.css">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-brand">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span>MergeIT Dashboard</span>
+  </div>
+  <div class="nav-links" id="navLinks">
+    <a href="/dashboard/" class="nav-link" data-page="overview">Overview</a>
+    <a href="/dashboard/agents" class="nav-link" data-page="agents">Agents</a>
+    <a href="/dashboard/alerts" class="nav-link" data-page="alerts">Alerts</a>
+    <a href="/dashboard/vulnerabilities" class="nav-link" data-page="vulnerabilities">Vulnerabilities</a>
+    <a href="/dashboard/manager" class="nav-link" data-page="manager">Manager</a>
+  </div>
+</nav>
+<main class="main" id="mainContent">
+  <div class="loading">Loading...</div>
+</main>
+<script src="/dashboard/app.js"></script>
+</body>
+</html>

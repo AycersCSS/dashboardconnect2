@@ -1,0 +1,24 @@
+<div class="page agents-page">
+  <h2>Agents</h2>
+
+  <div class="stats-mini">
+    <span class="mini-stat"><span class="badge badge-active">&nbsp;</span> Active: <strong id="agentTotal">—</strong></span>
+    <div class="status-bars">
+      <div class="bar-row"><span class="bar-label">active</span><div class="bar-track"><div class="bar-fill bar-active" id="barActive"></div></div><span class="bar-count">—</span></div>
+      <div class="bar-row"><span class="bar-label">disconnected</span><div class="bar-track"><div class="bar-fill bar-disconnected" id="barDisconnected"></div></div><span class="bar-count">—</span></div>
+      <div class="bar-row"><span class="bar-label">pending</span><div class="bar-track"><div class="bar-fill bar-pending" id="barPending"></div></div><span class="bar-count">—</span></div>
+      <div class="bar-row"><span class="bar-label">never_connected</span><div class="bar-track"><div class="bar-fill bar-never" id="barNever"></div></div><span class="bar-count">—</span></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search-input" id="agentSearch" placeholder="Search agents...">
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>Name</th><th>OS</th><th>Status</th><th>Last Seen</th></tr></thead>
+      <tbody id="agentsTableBody"><tr><td colspan="5" class="loading-skel"></td></tr></tbody>
+    </table>
+  </div>
+</div>

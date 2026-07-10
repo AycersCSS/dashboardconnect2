@@ -4,7 +4,7 @@ load_dotenv()
 import os
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect, send_from_directory
 
 import alerts
 import agent
@@ -16,6 +16,7 @@ import customer_auth
 from wazuh_auth import (
     WAZUH_API_URL,
     _get_request_context,
+    _ensure_wazuh_token,
     clear_wazuh_token,
 )
 
@@ -39,6 +40,34 @@ import routes_manager
 import routes_rules
 import routes_threat_actors
 import routes_vulnerabilities
+
+DASHBOARD_DIR = os.path.join(os.path.dirname(__file__), "dashboard")
+
+
+@app.route("/dashboard/init", methods=["GET"])
+def dashboard_init():
+    """Return a fresh Wazuh JWT for the dashboard frontend.
+
+    Called by dashboard JS on page load. Uses the connector's cached
+    service-account token so the frontend never sees Wazuh credentials.
+    """
+    try:
+        token = _ensure_wazuh_token()
+        return jsonify({"token": token}), 200
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
+
+
+@app.route("/")
+def root():
+    return redirect("/dashboard/")
+
+
+@app.route("/dashboard/")
+@app.route("/dashboard/<path:filename>")
+def dashboard_static(filename="index.html"):
+    return send_from_directory(DASHBOARD_DIR, filename)
+
 
 app.register_blueprint(routes_agents.bp)
 app.register_blueprint(routes_compliance.bp)
@@ -220,4 +249,4 @@ def agent_detail(agent_id):
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
